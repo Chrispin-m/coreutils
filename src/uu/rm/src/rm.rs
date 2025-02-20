@@ -520,8 +520,28 @@ fn handle_dir(path: &Path, options: &Options) -> bool {
 /// Remove the given directory, asking the user for permission if necessary.
 ///
 /// Returns true if it has encountered an error.
+/// Remove the given directory, asking the user for permission if necessary.
+///
+/// Returns true if it has encountered an error.
 fn remove_dir(path: &Path, options: &Options) -> bool {
-    // Ask the user for permission.
+    // Skip prompting if stdin is not a terminal (e.g., redirected from /dev/null)
+    if !atty::is(atty::Stream::Stdin) {
+        match fs::remove_dir(path) {
+            Ok(_) => {
+                if options.verbose {
+                    println!("removed directory {}", normalize(path).quote());
+                }
+                return false;
+            }
+            Err(e) => {
+                let e = e.map_err_context(|| format!("cannot remove {}", path.quote()));
+                show_error!("{e}");
+                return true;
+            }
+        }
+    }
+
+    // Ask the user for permission if stdin is a terminal
     if !prompt_dir(path, options) {
         return false;
     }
